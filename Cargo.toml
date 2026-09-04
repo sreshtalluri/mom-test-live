@@ -1,0 +1,31 @@
+[package]
+name = "mom-test-live"
+version = "0.1.0"
+edition = "2021"
+description = "After-call transcript prep for The Mom Test — consent-gated, local-only, hands off to your coding agent."
+license = "MIT"
+repository = "https://github.com/sreshtalluri/mom-test-live"
+
+[[bin]]
+name = "mom-test-live"
+path = "src/main.rs"
+
+[dependencies]
+# --- No external dependencies used yet. Everything below is pure std, ---
+# --- verified with `cargo build` / `cargo test` in this environment.  ---
+
+# --- Intended for T4/T5 (see TODOS.md and docs/designs/live-coach-companion.md) ---
+# --- NOT added yet: crates.io was unreachable (403) and cmake was not present ---
+# --- in the environment this scaffold was built in, so these could not be    ---
+# --- fetched or verified to compile. Add when building on a machine with     ---
+# --- network access and cmake installed, then wire transcribe::run() and     ---
+# --- decode::run() to the real implementations (see the `todo!()` markers).  ---
+# whisper-rs = "0.1"            # or whisper-cpp-plus-rs — see finding 1A
+# symphonia = { version = "0.5", features = ["mp3", "isomp4", "wav", "flac", "ogg"] }  # finding 4A
+
+[dev-dependencies]
+# stdlib-only test harness; add nothing here without a real reason.
+
+[profile.release]
+strip = true
+lto = true
