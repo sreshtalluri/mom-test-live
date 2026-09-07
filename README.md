@@ -56,24 +56,35 @@ Distribution Plan).
 
 ## Status
 
-**Working today (v0, text transcripts):**
+**Working today (v0):**
 - Hard, unskippable consent gate — no bypass flag, by design
 - Input-type detection (extension + a magic-byte sanity check for misnamed files)
+- Real audio decoding (any container [Symphonia](https://github.com/pdeljanov/Symphonia)
+  understands — WAV/MP3/M4A/FLAC/OGG) into mono 16kHz PCM, verified against real
+  encoded audio, not just synthetic test data
 - Speaker-label detection — recognizes `F:`/`C:`, named speakers ("Priya Sharma:"),
   and Otter-style ("Speaker 1:") conventions; warns and proceeds if none are found
 - Output written to a gitignored `mom-test-live/` folder, atomic write
 - Exact hand-off instructions for your coding agent
 
-**Not wired up yet:** audio transcription (needs `whisper-rs`/`whisper-cpp-plus-rs`
-and Symphonia — see [TODOS.md](TODOS.md)). Pass a text transcript for now; running
-`import` on an audio file gives you a clear "not implemented yet" error, not a crash
-or a silent failure.
+**Not wired up yet:** the actual whisper.cpp inference call (`whisper-rs` is a real
+dependency and its C++ core builds cleanly here — decoding audio into the exact PCM
+shape whisper.cpp wants is done and tested; running the model on those samples isn't
+written yet). Running `import` on an audio file today gives you a clear "not
+implemented yet" error after decoding succeeds, not a crash or a silent failure. Pass
+a text transcript for the full working loop in the meantime.
 
-**v1 (later, once v0 has real usage):** a quiet, invisible-until-triggered live
-overlay during the actual call: local whisper.cpp + Diart for real-time transcription
-and diarization, a founder-violation classifier (Groq, bring-your-own-key,
-~$0.005/call), forked from [OpenCluely](https://github.com/TechyCSR/OpenCluely) for
-the stealth-overlay plumbing.
+**v1 (later, once v0 has real usage):** a quiet, invisible-until-triggered overlay
+during the actual call — and it needs zero integration with Zoom, Meet, or any
+specific app. It captures your microphone and the call's system audio output as two
+separate streams (`ScreenCaptureKit` on macOS, WASAPI loopback on Windows), so
+founder-vs-customer separation comes for free from *which stream the audio came
+from*, not from a diarization model untangling one mixed recording — this works
+identically for Zoom, Meet, a phone call on speaker, or an in-person meeting. A
+founder-violation classifier (Groq, bring-your-own-key, ~$0.005/call) flags the
+founder's own pitching/leading, not the customer's answers. The overlay itself is
+forked from [OpenCluely](https://github.com/TechyCSR/OpenCluely) for the
+invisible-until-triggered window plumbing.
 
 ## Why v0 before v1
 
@@ -89,16 +100,22 @@ History.)
 ## Development
 
 ```sh
-cargo build       # debug build
-cargo test        # 29 unit tests, all pure std — no network/native deps required
+cargo build       # debug build — needs network access (crates) and cmake (whisper.cpp)
+cargo test        # 41 unit tests
 cargo build --release
 ```
 
-No external crates are used yet (see comments in `Cargo.toml`) — everything that
-ships today is std-only and fully tested. Audio support needs `whisper-rs` (or
-`whisper-cpp-plus-rs`) and `symphonia`, which require network access to fetch and
-`cmake` to build whisper.cpp's C++ core; wire them into `src/transcribe.rs` (currently
-a stub) once you have both available.
+Two real dependencies: `symphonia` (audio decoding, pure Rust) and `whisper-rs`
+(wraps whisper.cpp's C++ core — needs `cmake` on your machine, e.g. `brew install
+cmake` on macOS; Linux/Windows CI runners typically have it preinstalled). Everything
+else (consent, detect, labels, output, handoff) is pure std, deliberately — no
+dependency was added for what a few lines of stdlib cover.
+
+What's left to reach a fully working audio path: `src/transcribe.rs` decodes audio
+(done, real, tested) but doesn't yet load a whisper model or run inference — see its
+doc comment and [TODOS.md](TODOS.md) for exactly what's next (model download/caching
+mechanics, then the `WhisperContext`/`FullParams` call itself, following whisper-rs's
+own README example).
 
 ## Contributing
 
