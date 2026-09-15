@@ -1,0 +1,82 @@
+name: Package offline binaries
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, macos-15-intel, windows-2022]
+    runs-on: ${{ matrix.os }}
+    env:
+      MOM_TEST_MODEL_DIR: ${{ github.workspace }}/.model-cache
+      GGML_NATIVE: 'OFF'
+      GGML_BMI2: 'OFF'
+      GGML_AVX: 'OFF'
+      GGML_AVX2: 'OFF'
+      GGML_FMA: 'OFF'
+      GGML_F16C: 'OFF'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-portable
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake clang libclang-dev ffmpeg
+      - name: Windows libclang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '"LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV'
+      - run: cargo fmt --check
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo run --locked -- models download base
+      - run: python scripts/package.py --model .model-cache/ggml-base.bin
+      - name: Test bundled model, offline
+        env:
+          MOM_TEST_BUNDLE_MODEL: ${{ github.workspace }}/.model-cache/ggml-base.bin
+        run: cargo test --release --locked --features bundled-model transcribes_real_recorded_speech_offline -- --ignored
+      - name: Test packaged CLI with an empty cache
+        if: runner.os != 'Windows'
+        env:
+          MOM_TEST_MODEL_DIR: ${{ runner.temp }}/empty-model-cache
+        run: python scripts/e2e.py --binary dist/native/mom-test-live --audio
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mom-test-live-${{ matrix.os }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Prepare a draft for maintainer review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --generate-notes

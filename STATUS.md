@@ -1,49 +1,79 @@
 # mom-test-live — Project Status
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-15
 
-## What's Live (main)
+## Implemented locally (v0, 0.2.0)
 
-- CLI scaffold (Rust), `mom-test-live import <file>`, 41 tests passing, release build clean.
-- Hard, unskippable consent gate — no bypass flag, verified via a real pty (not just mocked).
-- Input-type detection by extension + magic-byte sanity check.
-- Real audio decoding: any container Symphonia understands (WAV/MP3/M4A/FLAC/OGG) → mono 16kHz PCM, verified against a real synthesized WAV through the actual decode pipeline, not just synthetic arrays.
-- Speaker-label detection (F:/C:, named speakers, Otter-style "Speaker 1:") via one general heuristic.
-- Output to gitignored `mom-test-live/`, atomic write.
-- Hand-off message: paste/attach instructions for the user's own coding agent to run `mom-test-debrief` then `mom-test-memory record` — this tool never calls an LLM or writes to `discovery/` itself.
+The after-call product now has a complete executable pipeline:
 
-## What's In Progress
+1. Accept one input path and inspect metadata only.
+2. Require interactive, per-call consent before reading content or loading models.
+3. Read TXT/Markdown or extract turns from SRT/WebVTT; for audio, decode real codecs
+   to mono 16 kHz, reject unusable/non-speech audio with bundled local Silero VAD,
+   and run local whisper.cpp inference.
+4. Preserve supplied speaker names. Audio is timestamped and explicitly unlabeled.
+5. Atomically save a unique transcript in a private, gitignored folder.
+6. Print the exact debrief → memory-record hand-off for the founder's own agent.
 
-- **v0 — audio transcription** — 🚧 code complete except inference
-  - Decoding done and tested (`decode.rs`)
-  - `whisper-rs` added as a real dependency; its C++ core (whisper.cpp) builds cleanly here
-  - Not yet written: the actual `WhisperContext`/`FullParams` inference call in `transcribe.rs`, and model download/caching (see TODOS.md)
-  - Running `import` on audio today: decodes for real, then fails honestly with "not wired up yet" — never a crash, never a fake transcript
+No API key, conversational LLM call, raw-audio upload, telemetry, or discovery/ write.
 
-- **v1 — live in-call overlay** — ⬜ not started
-  - Design direction set: dual-stream capture (mic + system audio output) gives founder/customer separation for free, no Diart needed for the core 1:1-call case — works identically for Zoom, Meet, phone, or in-person, since it's OS-level, not app-specific
-  - This insight isn't in `docs/designs/live-coach-companion.md` yet — logged as a learning, not yet written back to the design doc
-  - Explicitly deferred until v0 has real founder usage
+Model management: pinned sizes and SHA-256, streaming HTTPS download, OS-specific
+cache, strict offline mode, custom trusted model paths, progress, actionable errors,
+and no silent fallback. Release builds embed the verified multilingual base model
+and VAD weights into one executable. Packaging includes an archive and checksum.
 
-## Blocking Items
+## Local verification — rerun 2026-09-15
 
-1. **No real audio test fixture.** All decode tests use synthesized WAV data; nothing has been verified against an actual call recording (real codec quirks, real noise, real length). Unblocks once someone runs it on a real file — worth doing before claiming v0 audio "works."
-2. **Model download mechanics undefined** (TODOS.md) — blocks writing real inference code, since `transcribe.rs` needs a model file path to hand `WhisperContext`.
+On the development Apple Silicon Mac:
 
-## Key Files
+- 53 Rust tests passed (49 unit, 3 process, and the explicit offline inference
+  test), plus formatting and Clippy with warnings denied.
+- 11 end-to-end scenarios: real PTY consent, no piped/bypass consent,
+  empty/corrupt input, speech/silence/tone,
+  private gitignored output, exact hand-off, no discovery mutation, and concurrent
+  imports.
+- Real human-recorded JFK speech from whisper.cpp's public fixture, including
+  WAV → MP3, AAC/M4A, AAC/MP4, FLAC, and OGG/Vorbis at 44.1 kHz stereo.
+- Built the native release archive, verified its SHA-256, extracted it, and ran all
+  11 end-to-end scenarios against the extracted binary offline with an empty model
+  cache. No model cache was created. macOS dependencies are system libraries only.
 
-| File | Why it matters |
-|---|---|
-| `docs/designs/live-coach-companion.md` | Full design history — 3 review rounds, the cost research, the cross-model tensions and how they were resolved |
-| `src/transcribe.rs` | Doc comment explains exactly what's left (inference call + model download) and why decode was chosen to run first |
-| `src/decode.rs` | Doc comment explains why hand-written linear resampling over the `rubato` crate |
-| `TODOS.md` | Model download mechanics + v0 success metrics — both deferred, both needed before real usage |
+The historical speech fixture is not a customer interview. Noise and tone tests do
+not establish accuracy for arbitrary noisy calls; VAD and Whisper remain probabilistic.
 
-## Next Steps (priority order)
+## Native CI and remaining acceptance
 
-1. Define model download/caching (TODOS.md item 1): source, checksum, cache path, offline behavior.
-2. Wire real whisper.cpp inference in `transcribe.rs` (`WhisperContext` + `FullParams`, per whisper-rs's README example).
-3. Test the full pipeline against a real call recording, not synthesized audio.
-4. GitHub Actions release workflow — cross-platform binaries (Linux/macOS/Windows), currently only built locally.
-5. Once v0 is real end to end: get it in front of a few real founders before starting v1.
-6. Write the dual-stream-capture (no-Diart-needed) insight back into the v1 section of the design doc.
+- [PR #1](https://github.com/sreshtalluri/mom-test-live/pull/1) runs CI and native
+  packaging for Linux x64, macOS ARM/Intel, and Windows x64. Its checks and attached
+  workflow runs are the source of truth for each platform's results. PR packaging
+  produces review artifacts without publishing a release.
+- Release publication has not been performed. Tagged builds prepare a draft.
+- Test the full import → manual labeling/review → agent debrief → memory-record loop
+  with at least three real founders and their own recordings/projects. No founder
+  trial outcomes were supplied during this audit. The executable protocol and blank
+  outcome log are in [docs/founder-trials.md](docs/founder-trials.md).
+- Windows has portable process tests and real offline inference in CI; its
+  interactive console consent/import flow still requires a manual Windows trial.
+- [docs/releases.md](docs/releases.md) covers review builds, archive verification,
+  and the remaining publication steps.
+
+## v1 direction
+
+The live overlay remains deferred until real founder usage of v0, per the approved
+design. The dual-stream microphone/system-output insight is now recorded in the
+design with its scope: isolated remote 1:1 calls can use capture source as a role hint;
+speakerphone and in-person recordings still contain mixed voices.
+
+## Key files
+
+| File | Purpose |
+| --- | --- |
+| src/main.rs | CLI and consent-first pipeline |
+| src/models.rs, src/model_catalog.rs | Verified model downloads/cache |
+| src/speech.rs, src/transcribe.rs | Local VAD and Whisper inference |
+| src/transcript.rs | Caption export conversion without inventing speaker identities |
+| src/output.rs | Atomic private output |
+| scripts/e2e.py | Actual terminal and codec acceptance tests |
+| scripts/package.py | Native offline binary packaging |
+| docs/models.md | Exact model mechanics |
+| TODOS.md | Founder and distribution acceptance work |

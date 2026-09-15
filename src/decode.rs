@@ -35,8 +35,18 @@ pub fn run(path: &Path) -> Result<Vec<f32>, String> {
     }
 
     let mut format = symphonia::default::get_probe()
-        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
-        .map_err(|e| format!("{}: unrecognized or corrupt audio container: {e}", path.display()))?;
+        .probe(
+            &hint,
+            mss,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
+        .map_err(|e| {
+            format!(
+                "{}: unrecognized or corrupt audio container: {e}",
+                path.display()
+            )
+        })?;
 
     let track = format
         .default_track(TrackType::Audio)
@@ -46,14 +56,19 @@ pub fn run(path: &Path) -> Result<Vec<f32>, String> {
         .codec_params
         .as_ref()
         .and_then(|p| p.audio())
-        .ok_or_else(|| format!("{}: unsupported or missing audio codec parameters", path.display()))?
+        .ok_or_else(|| {
+            format!(
+                "{}: unsupported or missing audio codec parameters",
+                path.display()
+            )
+        })?
         .clone();
 
     let mut decoder = symphonia::default::get_codecs()
         .make_audio_decoder(&codec_params, &AudioDecoderOptions::default())
         .map_err(|e| format!("{}: unsupported audio codec: {e}", path.display()))?;
 
-    let mut interleaved: Vec<f32> = Vec::new();
+    let mut mono: Vec<f32> = Vec::new();
     let mut channels: Option<usize> = None;
     let mut source_rate: Option<u32> = None;
     let mut scratch: Vec<f32> = Vec::new();
@@ -69,7 +84,12 @@ pub fn run(path: &Path) -> Result<Vec<f32>, String> {
                     path.display()
                 ));
             }
-            Err(e) => return Err(format!("{}: error reading audio stream: {e}", path.display())),
+            Err(e) => {
+                return Err(format!(
+                    "{}: error reading audio stream: {e}",
+                    path.display()
+                ))
+            }
         };
 
         if packet.track_id != track_id {
@@ -79,26 +99,40 @@ pub fn run(path: &Path) -> Result<Vec<f32>, String> {
         match decoder.decode(&packet) {
             Ok(audio_buf) => {
                 let spec = audio_buf.spec();
+                if spec.channels().count() == 0 || spec.rate() == 0 {
+                    return Err("invalid audio channel count or sample rate".into());
+                }
+                if channels.is_some_and(|n| n != spec.channels().count())
+                    || source_rate.is_some_and(|r| r != spec.rate())
+                {
+                    return Err(
+                        "audio format changed mid-file; convert it to a single WAV track and retry"
+                            .into(),
+                    );
+                }
                 channels.get_or_insert(spec.channels().count());
                 source_rate.get_or_insert(spec.rate());
 
                 scratch.resize(audio_buf.samples_interleaved(), f32::MID);
                 audio_buf.copy_to_slice_interleaved(&mut scratch);
-                interleaved.extend_from_slice(&scratch);
+                mono.extend(downmix_to_mono(&scratch, spec.channels().count()));
             }
-            Err(SymphoniaError::IoError(_)) | Err(SymphoniaError::DecodeError(_)) => continue,
+            // Silently dropping corrupt packets can remove the very evidence the
+            // founder is trying to inspect. Fail instead of exporting a partial call.
             Err(e) => return Err(format!("{}: decode error: {e}", path.display())),
         }
     }
 
-    let channels = channels.ok_or_else(|| format!("{}: no decodable audio packets found", path.display()))?;
+    channels.ok_or_else(|| format!("{}: no decodable audio packets found", path.display()))?;
     let source_rate = source_rate.unwrap_or(WHISPER_SAMPLE_RATE);
 
-    if interleaved.is_empty() {
-        return Err(format!("{}: decoded to zero audio samples (silent or empty file)", path.display()));
+    if mono.is_empty() {
+        return Err(format!(
+            "{}: decoded to zero audio samples (silent or empty file)",
+            path.display()
+        ));
     }
 
-    let mono = downmix_to_mono(&interleaved, channels);
     let resampled = if source_rate == WHISPER_SAMPLE_RATE {
         mono
     } else {

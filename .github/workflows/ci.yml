@@ -1,0 +1,57 @@
+name: Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, macos-15-intel, windows-2022]
+    runs-on: ${{ matrix.os }}
+    # Cached C++ builds move between runners with different CPU instruction sets.
+    # Match the distribution baseline instead of caching -march=native output.
+    env:
+      GGML_NATIVE: 'OFF'
+      GGML_BMI2: 'OFF'
+      GGML_AVX: 'OFF'
+      GGML_AVX2: 'OFF'
+      GGML_FMA: 'OFF'
+      GGML_F16C: 'OFF'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-portable
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake clang libclang-dev ffmpeg
+      - name: Windows libclang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '"LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV'
+      - run: cargo fmt --check
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - name: Real terminal consent and import tests
+        if: runner.os != 'Windows'
+        run: python scripts/e2e.py --binary target/debug/mom-test-live
+      - name: Download verified test model
+        run: cargo run --locked -- models download base
+      - name: Real offline inference on every platform
+        run: cargo test --release --locked transcribes_real_recorded_speech_offline -- --ignored
+      - name: Codec and terminal audio tests
+        if: runner.os == 'Linux'
+        run: python scripts/e2e.py --binary target/release/mom-test-live --audio

@@ -1,6 +1,6 @@
 [package]
 name = "mom-test-live"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "After-call transcript prep for The Mom Test — consent-gated, local-only, hands off to your coding agent."
 license = "MIT"
@@ -12,13 +12,23 @@ path = "src/main.rs"
 
 [dependencies]
 # Audio decoding (finding 4A: pure Rust, no external binary dependency).
-symphonia = { version = "0.6.1", features = ["mp3", "isomp4", "wav", "flac", "ogg"] }
+symphonia = { version = "0.6.1", features = ["mp3", "aac", "alac", "isomp4", "wav", "flac", "ogg"] }
 # Local speech-to-text (finding 1A: chosen for the cross-platform single-binary
 # story). Requires cmake to build whisper.cpp's C++ core — see README.md's
 # Development section.
 whisper-rs = "0.16.0"
-# Everything else (consent, detect, labels, output, handoff) is pure std,
-# deliberately — no dependency was added for what a few lines of stdlib cover.
+clap = { version = "4.5", features = ["derive"] }
+dirs = "6"
+sha2 = "0.10"
+tempfile = "3"
+ureq = "3.1"
+
+[features]
+# Release binaries embed the verified base model.
+bundled-model = []
+
+[build-dependencies]
+sha2 = "0.10"
 
 [dev-dependencies]
 # stdlib-only test harness; add nothing here without a real reason.
