@@ -10,6 +10,10 @@ service is required. The live coaching overlay is the next product stage, after
 founders have used this after-call workflow. See [STATUS.md](STATUS.md) for tested
 coverage and remaining acceptance work.
 
+Native review builds and the publication checklist are described in
+[docs/releases.md](docs/releases.md). For end-to-end product validation, use the
+[founder trial protocol](docs/founder-trials.md).
+
 ## Run it
 
 Build from source with a stable Rust toolchain, a C++ compiler, CMake, and libclang:

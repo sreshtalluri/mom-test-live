@@ -5,7 +5,8 @@ v0 implementation is complete; see STATUS.md for executed checks.
 ## Founder acceptance
 
 Recruit at least three founders who each complete import → review/label → debrief →
-memory record on their own call and project. Record, with their permission:
+memory record on their own call and project. Use the ready-to-run
+[trial protocol and outcome log](docs/founder-trials.md). Record, with their permission:
 
 - Whether the full loop completed and where they stopped.
 - Input format and approximate duration; time to a usable transcript.

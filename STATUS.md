@@ -1,6 +1,6 @@
 # mom-test-live — Project Status
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-15
 
 ## Implemented locally (v0, 0.2.0)
 
@@ -22,7 +22,7 @@ cache, strict offline mode, custom trusted model paths, progress, actionable err
 and no silent fallback. Release builds embed the verified multilingual base model
 and VAD weights into one executable. Packaging includes an archive and checksum.
 
-## Verification
+## Local verification — rerun 2026-09-15
 
 On the development Apple Silicon Mac:
 
@@ -34,18 +34,28 @@ On the development Apple Silicon Mac:
   imports.
 - Real human-recorded JFK speech from whisper.cpp's public fixture, including
   WAV → MP3, AAC/M4A, AAC/MP4, FLAC, and OGG/Vorbis at 44.1 kHz stereo.
-- Bundled release binary tested offline with an empty model cache.
+- Built the native release archive, verified its SHA-256, extracted it, and ran all
+  11 end-to-end scenarios against the extracted binary offline with an empty model
+  cache. No model cache was created. macOS dependencies are system libraries only.
 
 The historical speech fixture is not a customer interview. Noise and tone tests do
 not establish accuracy for arbitrary noisy calls; VAD and Whisper remain probabilistic.
 
-## Ready for external verification
+## Native CI and remaining acceptance
 
-- CI/release workflows for Linux x64, macOS ARM/Intel, and Windows x64 are written.
-  Platforms not executed locally remain unverified until those workflows run.
+- [PR #1](https://github.com/sreshtalluri/mom-test-live/pull/1) runs CI and native
+  packaging for Linux x64, macOS ARM/Intel, and Windows x64. Its checks and attached
+  workflow runs are the source of truth for each platform's results. PR packaging
+  produces review artifacts without publishing a release.
 - Release publication has not been performed. Tagged builds prepare a draft.
 - Test the full import → manual labeling/review → agent debrief → memory-record loop
-  with at least three real founders and their own recordings/projects.
+  with at least three real founders and their own recordings/projects. No founder
+  trial outcomes were supplied during this audit. The executable protocol and blank
+  outcome log are in [docs/founder-trials.md](docs/founder-trials.md).
+- Windows has portable process tests and real offline inference in CI; its
+  interactive console consent/import flow still requires a manual Windows trial.
+- [docs/releases.md](docs/releases.md) covers review builds, archive verification,
+  and the remaining publication steps.
 
 ## v1 direction
 
