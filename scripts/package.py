@@ -45,8 +45,12 @@ with tempfile.TemporaryDirectory(prefix="mom-test-package-") as temp:
         shutil.copy2(ROOT / name, package / name)
     shutil.copytree(ROOT / "docs", package / "docs")
     shutil.copytree(ROOT / "licenses", package / "licenses")
+    # A native build only downloads dependencies for its target. Unfiltered
+    # metadata tries to fetch other platforms' crates even with --offline (for
+    # example anstyle-wincon on macOS), breaking packaging on a fresh runner.
     metadata = json.loads(subprocess.check_output(
-        ["cargo", "metadata", "--format-version", "1", "--locked", "--offline"], cwd=ROOT))
+        ["cargo", "metadata", "--format-version", "1", "--locked", "--offline",
+         "--filter-platform", host, "--features", "bundled-model"], cwd=ROOT, env=env))
     inventory = ["# Rust dependency sources and licenses", ""]
     for dependency in metadata["packages"]:
         name, version = dependency["name"], dependency["version"]
