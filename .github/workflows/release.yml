@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: '3.12'
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-portable
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML
       - name: Linux native dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y cmake clang libclang-dev ffmpeg
