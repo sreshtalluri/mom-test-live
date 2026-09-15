@@ -26,6 +26,7 @@ const THRESHOLD: f64 = 0.5;
 pub fn check(text: &str) -> LabelCheck {
     let mut non_empty = 0usize;
     let mut labeled = 0usize;
+    let mut speakers = std::collections::HashSet::new();
 
     for line in text.lines() {
         let trimmed = line.trim();
@@ -35,6 +36,7 @@ pub fn check(text: &str) -> LabelCheck {
         non_empty += 1;
         if looks_labeled(trimmed) {
             labeled += 1;
+            speakers.insert(trimmed.split_once(':').unwrap().0.trim().to_lowercase());
         }
     }
 
@@ -45,7 +47,7 @@ pub fn check(text: &str) -> LabelCheck {
     };
 
     LabelCheck {
-        already_labeled: ratio >= THRESHOLD,
+        already_labeled: ratio >= THRESHOLD && speakers.len() >= 2,
         labeled_line_ratio: ratio,
     }
 }
@@ -76,7 +78,7 @@ fn looks_labeled(line: &str) -> bool {
         return false;
     }
     match line[colon_idx + 1..].chars().next() {
-        None => true,             // colon at end of line
+        None => true, // colon at end of line
         Some(c) => c == ' ' || c == '\t',
     }
 }
@@ -87,19 +89,22 @@ mod tests {
 
     #[test]
     fn f_c_convention_detected() {
-        let text = "F: What's the hardest part of your week?\nC: Honestly, no-shows.\nF: Tell me more.\n";
+        let text =
+            "F: What's the hardest part of your week?\nC: Honestly, no-shows.\nF: Tell me more.\n";
         assert!(check(text).already_labeled);
     }
 
     #[test]
     fn named_speaker_convention_detected() {
-        let text = "Priya Sharma: Let's get started.\nJordan Lee: Sounds good.\nPriya Sharma: Great.\n";
+        let text =
+            "Priya Sharma: Let's get started.\nJordan Lee: Sounds good.\nPriya Sharma: Great.\n";
         assert!(check(text).already_labeled);
     }
 
     #[test]
     fn otter_style_speaker_number_detected() {
-        let text = "Speaker 1: Hi there.\nSpeaker 2: Hey, thanks for the time.\nSpeaker 1: Of course.\n";
+        let text =
+            "Speaker 1: Hi there.\nSpeaker 2: Hey, thanks for the time.\nSpeaker 1: Of course.\n";
         assert!(check(text).already_labeled);
     }
 
@@ -123,6 +128,11 @@ mod tests {
     #[test]
     fn empty_transcript_not_labeled() {
         assert!(!check("").already_labeled);
+    }
+
+    #[test]
+    fn one_speaker_is_not_speaker_separation() {
+        assert!(!check("F: Hello\nF: When did that happen?\n").already_labeled);
     }
 
     #[test]

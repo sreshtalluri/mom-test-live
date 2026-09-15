@@ -67,7 +67,8 @@ fn unrecognized_extension_error(path: &Path) -> String {
 }
 
 fn read_head(path: &Path, n: usize) -> Result<Vec<u8>, String> {
-    let mut f = fs::File::open(path).map_err(|e| format!("couldn't open {}: {e}", path.display()))?;
+    let mut f =
+        fs::File::open(path).map_err(|e| format!("couldn't open {}: {e}", path.display()))?;
     let mut buf = vec![0u8; n];
     let read = f
         .read(&mut buf)
@@ -118,7 +119,10 @@ mod tests {
         let nonce = format!(
             "{:?}-{}",
             std::thread::current().id(),
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         );
         let dir = std::env::temp_dir()
             .join("mom-test-live-detect-tests")
@@ -182,7 +186,10 @@ mod tests {
 
     #[test]
     fn vtt_extension_is_text() {
-        let p = write_temp("call.vtt", b"WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nHello\n");
+        let p = write_temp(
+            "call.vtt",
+            b"WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nHello\n",
+        );
         assert_eq!(classify(&p), Ok(InputKind::Text));
     }
 }

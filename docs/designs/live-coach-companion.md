@@ -290,3 +290,33 @@ from `sreshtalluri/mom-test`'s README once created.
   about unit economics before I'd given you a single number. The recommendation you
   picked (C: validate before building the expensive part) is the same instinct applied
   to the roadmap instead of the budget.
+
+
+## Implementation update — 2026-09-07
+
+The v0 Rust importer is now implemented end to end in mom-test-live. It runs
+Symphonia decoding, bundled Silero voice-activity detection, and local whisper.cpp
+inference; accepts existing text/caption exports; and preserves the consent-first
+ordering and agent hand-off defined above. VAD was added after an actual regression
+test showed Whisper generating words from a pure tone.
+
+Source builds download a checksum-pinned base model on the first audio import.
+Packaged releases embed the verified multilingual base model in the executable.
+Explicit tiny/small selection, cache preparation, offline mode, and custom trusted
+model paths are supported. Model mechanics are documented in the companion repo's
+docs/models.md. Release workflows prepare native archives and a draft release;
+publication and real founder acceptance are separate steps.
+
+The v1 capture refinement recorded in the companion's prior STATUS.md replaces
+mandatory diarization for the core remote 1:1 case: capture microphone input and
+system output separately, and use those isolated sources as founder/customer role
+hints. This can work across call apps without per-app integration. It does **not**
+separate two voices mixed into one microphone: phone speaker mode, in-person calls,
+acoustic bleed, and multiple remote participants still need validation and explicit
+role handling or diarization. Do not generalize source identity into guaranteed
+speaker identity for those cases.
+
+The approved sequence remains unchanged: finish v0, observe real founders using the
+full after-call loop, then build the live overlay. A successful automated speech
+fixture is engineering evidence, not evidence of founder adoption or live-coaching
+demand.

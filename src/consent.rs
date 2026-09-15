@@ -37,6 +37,10 @@ fn prompt_and_check<W: Write>(stdin: &mut dyn Read, stdout: &mut W) -> Result<()
     )
     .map_err(|e| e.to_string())?;
 
+    stdout
+        .flush()
+        .map_err(|e| format!("couldn't show consent prompt: {e}"))?;
+
     let response = read_line(stdin)?;
 
     if response.trim() == CONFIRM_PHRASE {
