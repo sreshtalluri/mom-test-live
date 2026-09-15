@@ -12,6 +12,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from release_archive import create_archive
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
@@ -68,8 +69,8 @@ with tempfile.TemporaryDirectory(prefix="mom-test-package-") as temp:
                 shutil.copy2(notice, target / notice.name)
     (package / "licenses" / "DEPENDENCIES.md").write_text("\n".join(inventory) + "\n")
     shutil.copy2(ROOT / "assets" / "SILERO-LICENSE", package / "licenses" / "SILERO-LICENSE")
-    archive = Path(shutil.make_archive(str(dist / archive_name),
-                   "zip" if os.name == "nt" else "gztar", temp, archive_name))
+    archive = create_archive(package, dist / archive_name,
+                             "zip" if os.name == "nt" else "gztar")
 digest = hashlib.sha256()
 with archive.open("rb") as file:
     for chunk in iter(lambda: file.read(1024 * 1024), b""):

@@ -42,13 +42,14 @@ jobs:
         shell: pwsh
         run: '"LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV'
       - run: cargo fmt --check
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - name: Real terminal consent and import tests
         if: runner.os != 'Windows'
         run: python scripts/e2e.py --binary target/debug/mom-test-live
       - name: Download verified test model
-        run: cargo run --release --locked -- models download base
+        run: cargo run --locked -- models download base
       - name: Real offline inference on every platform
         run: cargo test --release --locked transcribes_real_recorded_speech_offline -- --ignored
       - name: Codec and terminal audio tests

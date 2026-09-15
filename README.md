@@ -104,6 +104,7 @@ for source, license, proxy, interruption, timeout, and disk-space behavior.
 cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
+python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 # Real terminal gate and failure cases; Python stdlib only, macOS/Linux.
 python3 scripts/e2e.py --binary target/debug/mom-test-live
